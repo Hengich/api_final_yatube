@@ -1,25 +1,28 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from rest_framework.exceptions import ValidationError
 
 User = get_user_model()
 
+LENGTH_LIMIT = 50
+
 
 class Group(models.Model):
-    title = models.CharField(max_length=200, verbose_name='Название')
-    slug = models.SlugField(unique=True, verbose_name='Слаг')
-    description = models.TextField(verbose_name='Описание')
+    title = models.CharField('Название', max_length=200)
+    slug = models.SlugField('Слаг', unique=True)
+    description = models.TextField('Описание')
 
     def __str__(self):
-        return self.title
+        return self.title[:LENGTH_LIMIT]
 
 
 class Post(models.Model):
-    text = models.TextField()
+    text = models.TextField('Текст')
     pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='posts')
     image = models.ImageField(
-        upload_to='posts/', null=True, blank=True)
+        upload_to='posts/', blank=True)
     group = models.ForeignKey(
         Group,
         blank=True,
@@ -28,7 +31,7 @@ class Post(models.Model):
     )
 
     def __str__(self):
-        return self.text
+        return self.text[:LENGTH_LIMIT]
 
 
 class Comment(models.Model):
@@ -36,7 +39,7 @@ class Comment(models.Model):
         User, on_delete=models.CASCADE, related_name='comments')
     post = models.ForeignKey(
         Post, on_delete=models.CASCADE, related_name='comments')
-    text = models.TextField()
+    text = models.TextField('Текст')
     created = models.DateTimeField(
         'Дата добавления', auto_now_add=True, db_index=True)
 
@@ -46,3 +49,7 @@ class Follow(models.Model):
         User, on_delete=models.CASCADE, related_name='follower')
     following = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='following')
+
+    def clean(self):
+        if self.following == self.user:
+            raise ValidationError('Нельзя подписаться на самого себя.')

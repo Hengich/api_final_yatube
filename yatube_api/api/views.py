@@ -1,7 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, viewsets
-from rest_framework.exceptions import (PermissionDenied, MethodNotAllowed,
-                                       ValidationError)
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 
@@ -40,21 +39,22 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
-    def perform_create(self, serializer):
-        raise MethodNotAllowed('Создание группы через API запрещено!')
-
 
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = (AuthorOrReadOnly,)
 
+    def get_post(self):
+        post_id = self.kwargs.get("post_id")
+        post = get_object_or_404(Post, id=post_id)
+        return post
+
     def get_queryset(self):
-        post = get_object_or_404(Post, id=self.kwargs.get("post_id"))
+        post = self.get_post()
         return post.comments.all()
 
     def perform_create(self, serializer):
-        post_id = self.kwargs.get("post_id")
-        post = get_object_or_404(Post, id=post_id)
+        post = self.get_post()
         serializer.save(post=post, author=self.request.user)
 
     def perform_update(self, serializer):
@@ -78,9 +78,4 @@ class FollowViewSet(viewsets.ModelViewSet):
         return self.request.user.follower.all()
 
     def perform_create(self, serializer):
-        if self.request.user.follower.filter(
-                following=serializer.validated_data['following'].id):
-            raise ValidationError('Вы уже подписаны на данного пользователя.')
-        elif self.request.user == serializer.validated_data['following']:
-            raise ValidationError('Нельзя подписаться на самого себя.')
         serializer.save(user=self.request.user)
