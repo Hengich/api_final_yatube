@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
-from rest_framework.exceptions import ValidationError
+from django.db.models import CheckConstraint, F, Q, UniqueConstraint
 
 User = get_user_model()
 
@@ -50,6 +50,14 @@ class Follow(models.Model):
     following = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='following')
 
-    def clean(self):
-        if self.following == self.user:
-            raise ValidationError('Нельзя подписаться на самого себя.')
+    class Meta():
+        constraints = (
+            UniqueConstraint(
+                fields=('user', 'following'),
+                name='unique_user_and_following'
+            ),
+            CheckConstraint(
+                check=~Q(user=F('following')),
+                name='check_follow',
+            ),
+        )
